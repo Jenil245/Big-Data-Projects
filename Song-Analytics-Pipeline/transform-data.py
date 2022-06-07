@@ -51,7 +51,7 @@ MOUNT_PATH = "/mnt/song-data/"
 
 # mount the s3 bucket
 
-dbutils.fs.unmount("/mnt/song-data")   # to unmount the s3 bucket
+dbutils.fs.unmount(MOUNT_PATH)   # to unmount the s3 bucket
 SOURCE_URL = "s3a://{0}:{1}@{2}".format(AWS_ACCESS_KEY, AWS_SECRET_KEY, AWS_BUCKET_NAME)# Mount the drive
 dbutils.fs.mount(SOURCE_URL, MOUNT_PATH)
 
@@ -307,6 +307,36 @@ songplays_df = process_songplays(spark, modified_logs_df, songs_info_df, artists
 
 print(songplays_df.count())
 songplays_df.show(5)
+
+# COMMAND ----------
+
+def write_parquet_file(dataframe, target_file, partition_columns=[]):
+    '''
+    write dataframes into parquet files
+    '''
+    dataframe.write.parquet(target_file+".parquet", mode='overwrite', partitionBy=partition_columns)
+
+# COMMAND ----------
+
+# writing data to parquet files for better performance
+
+write_parquet_file(songs_info_df, 'songs_info', ['year'])
+write_parquet_file(artists_df, 'artists')
+write_parquet_file(time_df, 'time', ['year', 'month'])
+write_parquet_file(users_df, 'users')
+write_parquet_file(songplays_df, 'songplays', ['year', 'month'])
+
+# COMMAND ----------
+
+# writing data to csv files
+
+modified_logs_df.write.save('logs_clean.csv', mode='overwrite', format="csv", header=True)
+modified_songs_df.write.save('songs_clean.csv', mode='overwrite', format="csv", header=True)
+user_level_listen_df.write.save('user_level_listen.csv', mode='overwrite', format="csv", header=True)    
+
+# COMMAND ----------
+
+# MAGIC %fs ls
 
 # COMMAND ----------
 

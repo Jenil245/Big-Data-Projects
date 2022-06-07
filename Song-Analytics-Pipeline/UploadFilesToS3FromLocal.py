@@ -13,16 +13,13 @@ def main():
     SECRET = config.get('AWS', 'AWS_SECRET_ACCESS_KEY')
     BUCKET_NAME = config.get('AWS', 'BUCKET_NAME')
 
-    BUCKET_CONFIG = {'LocationConstraint': 'us-east-2'}
-
-    s3_obj = boto3.client('s3', region_name="us-east-2",
+    s3_obj = boto3.client('s3', region_name="us-east-1",
                        aws_access_key_id=KEY,
                        aws_secret_access_key=SECRET
                        )
 
     try:
-        s3_obj.create_bucket(Bucket=BUCKET_NAME,
-                          CreateBucketConfiguration=BUCKET_CONFIG)
+        s3_obj.create_bucket(Bucket=BUCKET_NAME)
     except Exception as e:
         print(e)
 
