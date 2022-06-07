@@ -19,7 +19,7 @@ def create_spark_session():
     """     
     
     spark = SparkSession \
-        .builder() \
+        .builder \
         .appName("Data-Transformation") \
         .getOrCreate()
     
@@ -44,8 +44,8 @@ AWS_credentials = spark.read.format(file_type)\
 AWS_ACCESS_KEY = AWS_credentials.collect()[0]['Access key ID']
 AWS_SECRET_KEY = AWS_credentials.collect()[0]['Secret access key']
 #ENCODED_SECRET_KEY = SECRET_KEY.replace("/", "%2F")
-AWS_BUCKET_NAME="song-analysis"
-MOUNT_NAME = "/mnt/song-data"
+AWS_BUCKET_NAME="raw-song-data"
+MOUNT_PATH = "/mnt/song-data/"
 
 # COMMAND ----------
 
@@ -53,7 +53,7 @@ MOUNT_NAME = "/mnt/song-data"
 
 dbutils.fs.unmount("/mnt/song-data")   # to unmount the s3 bucket
 SOURCE_URL = "s3a://{0}:{1}@{2}".format(AWS_ACCESS_KEY, AWS_SECRET_KEY, AWS_BUCKET_NAME)# Mount the drive
-dbutils.fs.mount(SOURCE_URL, MOUNT_NAME)
+dbutils.fs.mount(SOURCE_URL, MOUNT_PATH)
 
 # COMMAND ----------
 
@@ -180,7 +180,7 @@ def process_logs_dataframe(spark, df):
 
 # COMMAND ----------
 
-songs_file_location = "/mnt/song-data/songs_data.json"
+songs_file_location = MOUNT_PATH+"songs_data.json"
 songs_file_type = "json"
 
 song_schema = StructType([
@@ -201,7 +201,7 @@ songs_df.head(5)
 
 # COMMAND ----------
 
-logs_file_location = "/mnt/song-data/logs.json"
+logs_file_location = MOUNT_PATH+"logs.json"
 logs_file_type = "json"
 
 log_schema = StructType([
