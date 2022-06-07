@@ -132,12 +132,12 @@ def process_logs_dataframe(spark, df):
     df = df.withColumn("registration_converted", df.registration.cast(LongType()))
     
     # creating users table with useful information like full name, gender, level
-    users_table = df.select(['userId', 'firstName', 'lastName', 'gender', 'level'])\
+    users_df = df.select(['userId', 'firstName', 'lastName', 'gender', 'level'])\
             .withColumnRenamed('userId', 'user_id')\
             .withColumnRenamed('firstName', 'first_name')\
             .withColumnRenamed('lastName', 'last_name').dropDuplicates()
     
-    users_table.createOrReplaceTempView('users')    
+    users_df.createOrReplaceTempView('users')    
     
     
     # create table that has information on users who have used paid and free version to listen songs
@@ -149,25 +149,25 @@ def process_logs_dataframe(spark, df):
     paid_users.createOrReplaceTempView('paid_users')
     free_users.createOrReplaceTempView('free_users')
     
-    user_level_listen = spark.sql("""
+    user_level_listen_df = spark.sql("""
         select a.userId user_id, a.count paid_use_count, b.count free_use_count
         from paid_users a join free_users b
         on a.userId = b.userId
         where a.userId != ''
     """)      
     
-    user_level_listen.createOrReplaceTempView('user_level_listen')
+    user_level_listen_df.createOrReplaceTempView('user_level_listen')
     
-    user_level_listen = spark.sql("""
+    user_level_listen_df = spark.sql("""
         select distinct u.first_name || ' ' || u.last_name as full_name, ul.paid_use_count, ul.free_use_count
-        from users u join user_listen ul
+        from users u join user_level_listen ul
         on u.user_id = ul.user_id
     """)
     
     # create a table that has all the time stamp information for deeper analytics
-    timestamp_table = df.select(['ts_converted']).withColumnRenamed('ts_converted','start_time') 
+    time_df = df.select(['ts_converted']).withColumnRenamed('ts_converted','start_time') 
 
-    timestamp_table = timestamp_table.withColumn('day', F.dayofmonth('start_time')) \
+    time_df = time_df.withColumn('day', F.dayofmonth('start_time')) \
                           .withColumn('month', F.month('start_time')) \
                           .withColumn('year', F.year('start_time')) \
                           .withColumn('hour', F.hour('start_time')) \
@@ -176,7 +176,7 @@ def process_logs_dataframe(spark, df):
                           .withColumn('week', F.weekofyear('start_time')) \
                           .withColumn('weekday', F.dayofweek('start_time')).dropDuplicates()   
     
-    return df, users_table, user_level_listen, timestamp_table   
+    return df, users_df, user_level_listen_df, time_df   
 
 # COMMAND ----------
 
@@ -236,7 +236,7 @@ modified_songs_df.cache()
 
 # COMMAND ----------
 
-modified_logs_df, users_table, user_level_listen, timestamp_table = process_logs_dataframe(spark, logs_df)
+modified_logs_df, users_df, user_level_listen_df, time_df = process_logs_dataframe(spark, logs_df)
 
 modified_logs_df.cache()
 
@@ -244,8 +244,69 @@ modified_logs_df.cache()
 
 # check whether storage level is set to in-memory or not
 
+print(modified_songs_df.storageLevel.useMemory)
 print(modified_logs_df.storageLevel.useMemory)
-print(modified_logs_df.storageLevel.useMemory)
+
+# COMMAND ----------
+
+def process_songplays(spark, logs_df, songs_df, artists_df, users_df, time_df):
+    """
+    Summary line. 
+    Process songplays
+  
+    Parameters: 
+    arg1 (Spark): (spark object)
+    arg2 (DataFrame): logs dataframe
+    arg3 (DataFrame): songs dataframe
+    arg4 (DataFrame): artists dataframe
+    arg5 (DataFrame): users dataframe
+    arg6 (DataFrame): time dataframe
+  
+    Returns(DataFrame): song plays dataframe
+    """            
+    
+    # Creating tables
+    logs_df.createOrReplaceTempView('logs')
+    songs_df.createOrReplaceTempView('songs')
+    artists_df.createOrReplaceTempView('artists')
+    users_df.createOrReplaceTempView('users')
+    time_df.createOrReplaceTempView('time')
+    
+    
+    songplays_df = spark.sql("""
+    select  t.start_time, l.userId as user_id, l.level, s.song_id, a.artist_id, l.sessionId as session_id, l.location, l.userAgent as user_agent
+    , t.year, t.month
+    from logs l join time t
+    on l.ts_converted = t.start_time
+    join artists a
+    on l.artist = a.name
+    join songs s
+    on l.song = s.title
+    """)
+
+    # create a monotonically increasing id 
+    # A column that generates monotonically increasing 64-bit integers.
+    # The generated ID is guaranteed to be monotonically increasing and unique, but not consecutive.
+    songplays_df = songplays_df.withColumn("idx", F.monotonically_increasing_id())
+
+    # Then since the id is increasing but not consecutive, it means you can sort by it, so you can use the `row_number`
+    songplays_df.createOrReplaceTempView('songplays_table')
+    songplays_df = spark.sql("""
+    select row_number() over (order by "idx") as num, 
+    start_time, user_id, level, song_id, artist_id, session_id, location, user_agent, year, month
+    from songplays_table
+    """)
+ 
+    return songplays_df       
+
+# COMMAND ----------
+
+songplays_df = process_songplays(spark, modified_logs_df, songs_info_df, artists_df, users_df, time_df)
+
+# COMMAND ----------
+
+print(songplays_df.count())
+songplays_df.show(5)
 
 # COMMAND ----------
 
