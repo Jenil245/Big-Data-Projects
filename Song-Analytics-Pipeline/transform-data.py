@@ -232,6 +232,21 @@ logs_df.head(5)
 
 modified_songs_df, songs_info_df, artists_df = process_songs_dataframe(spark, songs_df)
 
+modified_songs_df.cache()
+
 # COMMAND ----------
 
 modified_logs_df, users_table, user_level_listen, timestamp_table = process_logs_dataframe(spark, logs_df)
+
+modified_logs_df.cache()
+
+# COMMAND ----------
+
+# check whether storage level is set to in-memory or not
+
+print(modified_logs_df.storageLevel.useMemory)
+print(modified_logs_df.storageLevel.useMemory)
+
+# COMMAND ----------
+
+
