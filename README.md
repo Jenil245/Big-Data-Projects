@@ -1,6 +1,6 @@
 This repository contains all projects related to Big Data
 
-# Song Analytics Processing
+# Song Analytics with Spark
 
 ### Technologies: Apache Spark(PySpark), Databricks, AWS(S3, Athena)
 
